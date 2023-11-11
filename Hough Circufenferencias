@@ -1,0 +1,56 @@
+from google.colab import files
+from google.colab.patches import cv2_imshow
+import cv2
+import numpy as np
+from io import BytesIO
+from PIL import Image
+
+# Cargar la imagen directamente desde Colab
+uploaded = files.upload()
+imagen_bytes = next(iter(uploaded.values()))
+imagen = cv2.imdecode(np.frombuffer(imagen_bytes, np.uint8), -1)
+
+def detectar_anillo(imagen, radio_conocido):
+    # Convertir la imagen a escala de grises
+    imagen_gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+
+    # Aplicar un desenfoque para mejorar la detección de bordes
+    imagen_desenfocada = cv2.GaussianBlur(imagen_gris, (5, 5), 0)
+
+    # Aplicar la detección de bordes mediante el operador de Canny
+    bordes = cv2.Canny(imagen_desenfocada, 50, 150)
+
+    # Aplicar la transformada de Hough para detectar círculos
+    circulos = cv2.HoughCircles(
+        bordes,
+        cv2.HOUGH_GRADIENT,
+        dp=1,
+        minDist=20,
+        param1=50,
+        param2=30,
+        minRadius=int(radio_conocido * 0.9),
+        maxRadius=int(radio_conocido * 1.1),
+    )
+
+    if circulos is not None:
+        circulos = np.uint16(np.around(circulos))
+        for circulo in circulos[0, :]:
+            # Dibujar el círculo encontrado
+            cv2.circle(imagen, (circulo[0], circulo[1]), circulo[2], (0, 0, 255), 2)
+
+            # Dibujar el centro del círculo con un píxel
+            cv2.circle(imagen, (circulo[0], circulo[1]), 1, (0, 0, 255), 3)
+
+            # Mostrar las coordenadas del centro
+            coordenadas = f"Centro: ({circulo[0]}, {circulo[1]})"
+            cv2.putText(imagen, coordenadas, (circulo[0] + 10, circulo[1] + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+
+        # Mostrar el resultado
+        cv2_imshow(imagen)
+
+# Radio conocido del anillo
+radio_conocido = 50  # Ajusta esto según el tamaño real del anillo en píxeles
+
+# Detectar el anillo y mostrar el resultado
+detectar_anillo(imagen, radio_conocido)
+
